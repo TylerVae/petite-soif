@@ -86,14 +86,16 @@ J'ai conçu l'application (besoin, comportements, règles, interface) et le code
 
 ## Un souci, une idée ?
 
-Ouvre une [issue](../../issues) : décris ce qui s'est passé et, si possible, joins le fichier
+Une idée ou une envie ? Passe dans les [Discussions](../../discussions).
+
+Un bug ? Ouvre une [issue](../../issues) : décris ce qui s'est passé et, si possible, joins le fichier
 `%APPDATA%\PetiteSoif\donnees\erreurs.log`. Pense à relire ce fichier avant de le partager :
 il peut contenir ton nom d'utilisateur Windows dans des chemins de dossiers.
 
 ## Tu souhaites me remercier ?
 
 Je suis ravi que Petite Soif te plaise ! Tu peux mettre une ⭐ au projet (en haut de cette page)
-ou me laisser un petit mot en ouvrant une [issue](../../issues), même juste pour dire que ça t'a aidé :
+ou me laisser un petit mot dans les [Discussions](../../discussions), même juste pour dire que ça t'a aidé :
 ça me fera très plaisir.
 
 Et surtout : sois un humain cool avec les gens autour de toi, et répands de l'amour et de la bienveillance.

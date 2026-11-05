@@ -1,0 +1,31 @@
+# --- Données personnelles : ne JAMAIS publier ---------------------------
+# (l'appli range tout dans %APPDATA%\PetiteSoif ; filet de sécurité si un
+#  fichier de données atterrit quand même dans le dossier du code)
+config.json
+donnees/
+sons/
+*.db
+*.db-journal
+*.log
+*.lock
+*.csv
+
+# --- Build --------------------------------------------------------------
+build/
+dist/
+*.zip
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# --- Système / éditeurs -------------------------------------------------
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
+
+# --- Notes de session privées --------------------------------------------
+HANDOFF.md
+CLAUDE.local.md

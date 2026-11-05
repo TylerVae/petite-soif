@@ -14,7 +14,9 @@
   <img src="docs/etats.png" alt="Les différents états de la fleur : hydratée, trois niveaux de soif, sommeil, en train de boire, en marche">
 </p>
 
-<!-- 📽️ À AJOUTER : un GIF de démo (docs/demo.gif), enregistré avec ScreenToGif ou ShareX -->
+<p align="center">
+  <img src="docs/demo.gif" width="300" alt="Démo : la fleur a de plus en plus soif, puis un clic long l'arrose et elle redevient pimpante">
+</p>
 
 ## Pourquoi
 

@@ -5,7 +5,9 @@
 <h1 align="center">Petite Soif</h1>
 
 <p align="center">
-  Une petite fleur en pot qui vit sur ton bureau Windows… et qui a soif quand tu oublies de boire.
+  Une petite fleur en pot qui vit sur ton bureau Windows… et qui a soif quand tu oublies de boire.<br>
+  Pense à l'hydrater quand tu t'hydrates.<br>
+  Tu bois une gorgée, tu l'arroses d'un clic. Si tu l'oublies, elle se dessèche… et vient te le rappeler, de plus en plus fort.
 </p>
 
 <p align="center">
@@ -16,7 +18,14 @@
 
 ## Pourquoi
 
-<!-- ✍️ À ÉCRIRE PAR LE MAINTENEUR : pourquoi ce projet, le besoin de départ, ce que tu as appris -->
+Un besoin perso : depuis toujours, je ne bois pas assez d'eau. Je n'aime pas son goût.
+Pendant longtemps, j'ai compensé avec des sodas, ce qui n'est pas génial pour le corps.
+J'ai trouvé quelques alternatives (du citron, des sirops sans sucre), mais il me fallait surtout
+un moyen de boire de l'eau malgré tout.
+
+J'ai repensé au Tamagotchi de mon enfance. Si une petite plante mignonne me rouspétait dessus,
+est-ce que j'aurais envie de boire plus ? Si on me rappelait toutes les X minutes de boire,
+est-ce que je le ferais ? Ça valait le coup d'essayer. Alors j'ai fait Petite Soif.
 
 ## Installation
 
@@ -71,8 +80,7 @@ Tous les délais se règlent dans `config.json` (menu de l'icône → *Ouvrir co
 
 ## Fait avec Claude
 
-<!-- ✍️ À ÉCRIRE PAR LE MAINTENEUR : ta version de cette partie -->
-J'ai conçu l'application (besoin, comportements, règles, interface) et le code a été entièrement écrit par Claude (Anthropic) à partir de mes demandes.
+J'ai conçu l'application (besoin, comportements, règles, interface) et le code a été entièrement écrit par Claude à partir de mes demandes.
 
 ## Un souci, une idée ?
 
@@ -80,11 +88,14 @@ Ouvre une [issue](../../issues) : décris ce qui s'est passé et, si possible, j
 `%APPDATA%\PetiteSoif\donnees\erreurs.log`. Pense à relire ce fichier avant de le partager :
 il peut contenir ton nom d'utilisateur Windows dans des chemins de dossiers.
 
-## Tu aimes bien ?
+## Tu souhaites me remercier ?
 
-<!-- ✍️ À COMPLÉTER PAR LE MAINTENEUR : nom de l'association + lien direct vers SA page de don officielle -->
-Je ne demande rien pour moi. Si Petite Soif te plaît vraiment, fais un don à **[NOM DE L'ASSOCIATION](LIEN_OFFICIEL)**
-et dis-le-moi : ça me fera très plaisir.
+Je suis ravi que Petite Soif te plaise ! Tu peux mettre une ⭐ au projet (en haut de cette page)
+ou me laisser un petit mot en ouvrant une [issue](../../issues), même juste pour dire que ça t'a aidé :
+ça me fera très plaisir.
+
+Et surtout : sois un humain cool avec les gens autour de toi, et répands de l'amour et de la bienveillance.
+C'est la meilleure façon de me remercier.
 
 ## Pour les développeurs
 

@@ -8,7 +8,14 @@ Appli Windows (Python 3 + PySide6-Essentials) : une fleur en pot toujours au pre
 rappelle de boire de l'eau. Distribuée en `.exe` (PyInstaller, mode dossier) via les GitHub Releases.
 
 ## Phase actuelle
-Améliorations avant la première publication (voir `HANDOFF.md` en local). Git local uniquement : **aucun push** tant que le mainteneur n'a pas validé la v1 publique.
+v1.0.0 publiée (repo public + Release). Correctifs éventuels en `v1.0.x`, nouveautés en V2 (détail dans
+`HANDOFF.md` en local). Chaque session lit `HANDOFF.md` au début et le met à jour à la fin.
+
+## Workflow git
+- `main` reste toujours publiable. Chaque chantier (V2 : paramètres, visuels, sons…) se fait sur sa
+  propre branche, fusionnée dans `main` une fois testée. Le rappeler au mainteneur en début de chantier.
+- Publier = aligner `__version__`, tagger `vX.Y.Z`, pousser le tag (le workflow crée la Release).
+- Tout push, tag ou changement de réglage du repo GitHub se fait après un "go" explicite.
 
 ## Architecture
 - `petite_soif.pyw` : point d'entrée.
@@ -40,6 +47,9 @@ Améliorations avant la première publication (voir `HANDOFF.md` en local). Git 
 - Lancer depuis le code : `py -m pip install -r requirements.txt` puis `pyw petite_soif.pyw`
 - Build local : `build.bat` → `dist\PetiteSoif\PetiteSoif.exe`
 - Régénérer l'icône : `py tools\make_icon.py`
+- Régénérer le GIF du README : `.venv\Scripts\python tools\make_demo.py` (Pillow requis, outil de dev seulement)
+- Régénérer l'aperçu social : `.venv\Scripts\python tools\make_social.py` → `docs\petite_soif_vX.Y.Z_cover.png`
+  (non versionné), à téléverser à la main dans Settings > Social preview à chaque nouvelle version.
 
 ## Façon de travailler avec le mainteneur
 - Répondre en français, termes anglais acceptés quand ils sont plus précis.

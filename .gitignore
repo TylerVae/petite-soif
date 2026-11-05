@@ -29,3 +29,6 @@ desktop.ini
 # --- Notes de session privées --------------------------------------------
 HANDOFF.md
 CLAUDE.local.md
+
+# --- Images d'aperçu social (régénérées par tools/make_social.py) -------
+docs/*_cover.png

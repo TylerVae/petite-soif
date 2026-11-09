@@ -6,8 +6,11 @@ Pour passer à des sprites PNG plus tard, il suffit de remplacer draw_body().
 """
 import math
 
-from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtCore import QByteArray, QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QLinearGradient, QPainterPath, QPen, QRadialGradient
+from PySide6.QtSvg import QSvgRenderer
+
+from . import plantes
 
 BODY_W = 100.0
 BODY_H = 130.0
@@ -23,6 +26,37 @@ _LEAF_ANGLE = [38.0, 22.0, -8.0, -52.0]
 _PETAL_SCALE = [1.0, 0.97, 0.92, 0.84]
 
 INK = QColor("#4A2E24")
+
+# Plante affichée : "classique" (dessin vectoriel ci-dessous) ou une clé de plantes.PLANTES (SVG rendus par QtSvg).
+SKIN = "classique"
+_svg_cache = {}
+
+
+def set_skin(name):
+    global SKIN
+    SKIN = name if name in plantes.PLANTES else "classique"
+
+
+def draw_preview(p, skin):
+    """Plante `skin` bien hydratée, sans changer la plante choisie (aperçus des Paramètres)."""
+    global SKIN
+    old, SKIN = SKIN, (skin if skin in plantes.PLANTES else "classique")
+    try:
+        draw_body(p, 0.0)
+    finally:
+        SKIN = old
+
+
+def _skin_renderer(skin, th, sl, kind, blink, sway):
+    """Un rendu SVG par combinaison (soif, sommeil, visage, clin d'oeil, balancement) arrondie : le cache évite de regénérer à chaque image."""
+    key = (skin, round(th * 20), round(sl * 10), kind, blink, round(sway * 2))
+    r = _svg_cache.get(key)
+    if r is None:
+        if len(_svg_cache) > 800:
+            _svg_cache.clear()
+        svg = plantes.PLANTES[skin][0](key[1] / 20, key[2] / 10, kind, blink, key[5] / 2)
+        r = _svg_cache[key] = QSvgRenderer(QByteArray(svg.encode("utf-8")))
+    return r
 
 
 def _interp(values, x):
@@ -66,16 +100,24 @@ def _stem_geometry(thirst, sleeping, sway):
 
 
 def head_position(thirst, sleeping=False):
+    if SKIN != "classique":
+        return QPointF(*plantes.PLANTES[SKIN][1](thirst, 1.0 if sleeping else 0.0))
     return _stem_geometry(thirst, sleeping, 0.0)[1]
 
 
 def draw_body(p, thirst, *, sleeping=False, drinking=False, blink=False,
-              walking=False, walk_phase=0.0, sway=0.0):
+              walking=False, walk_phase=0.0, sway=0.0, sleep_amt=None):
     p.save()
     if walking:
         _feet(p, walk_phase)
     bob = -abs(math.sin(walk_phase)) * 3 if walking else 0.0
     p.translate(0, bob)
+
+    if SKIN != "classique":
+        sl = sleep_amt if sleep_amt is not None else (1.0 if sleeping else 0.0)
+        _skin_renderer(SKIN, thirst, sl, face_for(thirst, sleeping, drinking), blink, sway).render(p, QRectF(0, 0, BODY_W, BODY_H))
+        p.restore()
+        return
 
     # terre
     p.setPen(Qt.NoPen)
@@ -314,17 +356,74 @@ def draw_thought_bubble(p):
     p.restore()
 
 
-def draw_zz(p, t=0.0):
+def draw_zz(p, t=0.0, alpha=1.0):
+    """Deux Z qui montent du pot (côté droit, loin de la roue des paramètres) en s'effaçant."""
     p.save()
-    p.setPen(QColor("#7F93B5"))
-    f = QFont("Segoe UI")
-    f.setBold(True)
-    f.setPixelSize(11)
-    p.setFont(f)
-    p.drawText(QPointF(70, 6 + math.sin(t * 2) * 1.5), "z")
-    f.setPixelSize(16)
-    p.setFont(f)
-    p.drawText(QPointF(79, -5 + math.sin(t * 2 + 1) * 1.5), "Z")
+    p.setBrush(Qt.NoBrush)
+    for k, (x0, y0, s) in enumerate(((70.0, 86.0, 4.2), (79.0, 76.0, 6.0))):
+        ph = (t * 0.6 + k * 0.4) % 1.0
+        c = QColor("#7F93B5")
+        c.setAlphaF(max(0.0, min(1.0, math.sin(math.pi * ph) * alpha)))
+        p.setPen(QPen(c, 1.7, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        x, y = x0 + 5 * ph, y0 - 12 * ph
+        z = QPainterPath(QPointF(x, y))
+        z.lineTo(x + s, y)
+        z.lineTo(x, y + s * 1.25)
+        z.lineTo(x + s, y + s * 1.25)
+        p.drawPath(z)
+    p.restore()
+
+
+def draw_effet_a(p, t, alpha=1.0):
+    """Effet de sommeil A : une petite bulle qui se gonfle, flotte un peu, puis se dégonfle (plantes qui définissent plantes.EFFET_A)."""
+    pos = plantes.EFFET_A.get(SKIN)
+    if pos is None or alpha <= 0.01:
+        return
+    ph = (t / 3.6) % 1.0
+    r = 5.6 * (0.5 - 0.5 * math.cos(2 * math.pi * ph)) ** 0.8
+    if r < 0.3:
+        return
+    cx, cy = pos[0] + 0.55 * r, pos[1] + 0.45 * r + 0.8 * math.sin(t * 2.2)
+    p.save()
+    fill = QColor(196, 228, 255, int(120 * alpha))
+    p.setBrush(fill)
+    p.setPen(QPen(QColor(150, 200, 240, int(210 * alpha)), 0.9))
+    p.drawEllipse(QPointF(cx, cy), r, r)
+    p.setPen(QPen(QColor(255, 255, 255, int(230 * alpha)), 0.9, Qt.SolidLine, Qt.RoundCap))
+    if r > 2:
+        p.drawArc(QRectF(cx - r * .62, cy - r * .62, r * 1.24, r * 1.24), 100 * 16, 60 * 16)
+    p.restore()
+
+
+def draw_effet_b(p, t, alpha=1.0):
+    """Effet de sommeil B : une petite lueur qui vacille, son halo respire (plantes qui définissent plantes.EFFET_B)."""
+    pos = plantes.EFFET_B.get(SKIN)
+    if pos is None or alpha <= 0.01:
+        return
+    s = 1 + .09 * math.sin(t * 9) + .05 * math.sin(t * 14.3 + 1)
+    tilt = 4 * math.sin(t * 6.1) + 2 * math.sin(t * 11.7)
+    p.save()
+    p.setPen(Qt.NoPen)
+    r = 11 * (1 + .06 * math.sin(t * 5))
+    p.setBrush(QColor(255, 224, 138, int(55 * alpha)))
+    p.drawEllipse(QPointF(pos[0], pos[1] - 2), r, r)
+    p.setBrush(QColor(255, 224, 138, int(80 * alpha)))
+    p.drawEllipse(QPointF(pos[0], pos[1] - 2), r * .58, r * .58)
+    p.translate(pos[0], pos[1])
+    p.rotate(tilt)
+    p.scale(1.0, s)
+    shape = QPainterPath(QPointF(0, -5.4))
+    shape.quadTo(2.6, -2.6, 0, 0)
+    shape.quadTo(-2.6, -2.6, 0, -5.4)
+    p.setPen(QPen(QColor(240, 138, 28, int(255 * alpha)), 0.5))
+    p.setBrush(QColor(255, 184, 74, int(255 * alpha)))
+    p.drawPath(shape)
+    inner = QPainterPath(QPointF(0, -3.2))
+    inner.quadTo(1.2, -1.6, 0, -0.3)
+    inner.quadTo(-1.2, -1.6, 0, -3.2)
+    p.setPen(Qt.NoPen)
+    p.setBrush(QColor(255, 243, 176, int(255 * alpha)))
+    p.drawPath(inner)
     p.restore()
 
 

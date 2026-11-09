@@ -1,0 +1,21 @@
+# Lance les tests à chaque pull request et à chaque push sur main. Ne construit et ne publie rien :
+# la seule chose qui crée une Release reste release.yml (tag "v*").
+name: Tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Dépendances (versions figées)
+        run: python -m pip install -r requirements.txt
+      - name: Tests
+        run: python -m unittest discover -s tests -t . -v

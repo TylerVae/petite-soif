@@ -5,6 +5,9 @@ import time
 from datetime import date, datetime, timedelta
 
 
+SCHEMA_VERSION = 1  # à incrémenter à chaque changement de tables, avec sa migration dans Storage._migrate
+
+
 class Storage:
     def __init__(self, path, reset_hour=6):
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -25,7 +28,15 @@ class Storage:
             CREATE TABLE IF NOT EXISTS state(key TEXT PRIMARY KEY, value TEXT);
             """
         )
+        self._migrate()
         self.db.commit()
+
+    def _migrate(self):
+        """Une base sans numéro (user_version 0) est une base v1. Futures migrations : `if v < 2: ...` puis user_version = 2."""
+        v = self.db.execute("PRAGMA user_version").fetchone()[0]
+        if v > SCHEMA_VERSION:
+            raise RuntimeError(f"base de données plus récente que l'appli (v{v})")
+        self.db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
     # --- journées -------------------------------------------------------
     def day_key(self, ts=None):
@@ -102,6 +113,13 @@ class Storage:
         if not rows:
             return None
         return sum(r[1] for r in rows) / len(rows)
+
+    def xp(self):
+        """XP recalculée depuis l'historique : 1re gorgée du jour 5, puis 1 par gorgée, 3 par verre."""
+        rows = self.db.execute(
+            "SELECT SUM(type='gorgee'), SUM(type='verre') FROM events GROUP BY jour"
+        ).fetchall()
+        return sum((4 if g else 0) + g + 3 * v for g, v in ((g or 0, v or 0) for g, v in rows))
 
     # --- état persistant ------------------------------------------------
     def get_state(self, key, default=None):

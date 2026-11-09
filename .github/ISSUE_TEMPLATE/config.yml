@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "Idea, question or thanks / Idée, question ou merci"
+    url: https://github.com/TylerVae/petite-soif/discussions
+    about: "For anything that isn't a bug, the Discussions are the right place. / Pour tout ce qui n'est pas un bug, les Discussions sont l'endroit idéal."

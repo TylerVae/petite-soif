@@ -1,0 +1,45 @@
+name: "Bug / Signaler un bug"
+description: "Something doesn't work as expected / Quelque chose ne marche pas comme prévu"
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping! / Merci de ton aide !
+        Petite Soif is a small project: it's fine if it's not perfect. Just tell what you saw, in English or in French.
+        Petite Soif est un petit projet : pas besoin d'être parfait, raconte simplement ce que tu as vu, en français ou en anglais.
+  - type: input
+    id: version
+    attributes:
+      label: "Version"
+      description: "Settings → About / Paramètres → À propos (pre-filled if you came from the app / prérempli depuis l'appli)"
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: "Windows"
+      description: "Pre-filled if you came from the app / prérempli depuis l'appli"
+  - type: textarea
+    id: what
+    attributes:
+      label: "What happened? / Ce qui s'est passé ?"
+      description: "If it helps: which plant, which state (thirsty, asleep…), a screenshot. / Si ça aide : quelle plante, quel état (soif, sommeil…), une capture."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: "What did you expect? / Ce que tu attendais ?"
+  - type: textarea
+    id: screens
+    attributes:
+      label: "Screenshots (optional) / Captures d'écran (facultatif)"
+      description: "Drag and drop or paste images here. / Glisse-dépose ou colle tes images ici."
+  - type: textarea
+    id: log
+    attributes:
+      label: "Error log (optional) / Journal d'erreurs (facultatif)"
+      description: "Settings → About → Error log. Read it first: it may contain your Windows user name in folder paths. / Relis-le avant : il peut contenir ton nom d'utilisateur Windows dans des chemins."
+      render: text

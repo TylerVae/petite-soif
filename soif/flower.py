@@ -9,10 +9,12 @@ import random
 import time
 
 from PySide6.QtCore import QPoint, QPointF, QRectF, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QCursor, QGuiApplication, QPainter, QPen
+from PySide6.QtGui import (QColor, QCursor, QFont, QFontMetricsF, QGuiApplication, QPainter, QPainterPath,
+                           QPen)
 from PySide6.QtWidgets import QWidget
 
 from . import painter as art
+from .i18n import t
 
 MARGIN = 48.0
 POOF = 0.28
@@ -20,12 +22,13 @@ AGITATE = 1.6
 
 
 class _Particle:
-    __slots__ = ("kind", "x", "y", "vx", "vy", "life", "age", "size", "rot", "vr", "color")
+    __slots__ = ("kind", "x", "y", "vx", "vy", "life", "age", "size", "rot", "vr", "color", "text")
 
     def __init__(self, kind, x, y, vx, vy, life, size, color=None, vr=0.0):
         self.kind, self.x, self.y, self.vx, self.vy = kind, x, y, vx, vy
         self.life, self.age, self.size, self.color = life, 0.0, size, color
         self.rot, self.vr = random.uniform(0, 360), vr
+        self.text = ""
 
 
 class FlowerWidget(QWidget):
@@ -35,6 +38,8 @@ class FlowerWidget(QWidget):
     menu_requested = Signal(QPoint)
     home_changed = Signal(QPoint)
     poofed = Signal()
+    settings_requested = Signal()
+    dnd_requested = Signal()
 
     def __init__(self, scale=1.0, long_press_ms=800, cursor_offset=40):
         super().__init__(
@@ -53,10 +58,15 @@ class FlowerWidget(QWidget):
         self.thirst_target = 0
         self.thirst = 0.0
         self.sleeping = False
+        self.sl = 0.0  # sommeil lissé 0..1 (fondu des accessoires et des fleurs)
         self.mode = "home"
         self.home = QPoint(0, 0)
         self._fpos = QPointF(0, 0)
         self._follow_until = 0.0
+        self._orbit = False
+        self._news = False  # pastille : une nouvelle plante est débloquée
+        self.title_font = "Baloo 2"  # remplacé par la famille réellement chargée (main)
+        self._hover = False
         self._poof_t0 = 0.0
 
         self._pressing = False
@@ -85,9 +95,28 @@ class FlowerWidget(QWidget):
         self.setFixedSize(int((art.BODY_W + 2 * MARGIN) * s), int((art.BODY_H + 2 * MARGIN) * s))
 
     def set_scale(self, s):
+        """Change la taille en gardant le bas du pot au même endroit (sinon elle déborde de l'écran)."""
+        anchor = self.home + QPoint(self.width() // 2, self.height())
         self.scale_ = float(s)
         self._apply_size()
+        new_home = anchor - QPoint(self.width() // 2, self.height())
+        if self.mode == "home":
+            self.set_home(new_home)
+            self.home_changed.emit(self.home)
+        else:
+            self.home = new_home
         self.update()
+
+    def _dnd_rect_local(self):
+        """Bouton « Ne pas déranger » : symétrique de la roue, en bas à gauche du pot (repère widget)."""
+        s = self.scale_
+        return QRectF((MARGIN + 8) * s, (MARGIN + 108) * s, 24 * s, 24 * s)
+
+    def _gear_rect_local(self):
+        """Roue dentée des paramètres, en bas à droite du pot (repère widget)."""
+        s = self.scale_
+        return QRectF((MARGIN + 68) * s, (MARGIN + 108) * s, 24 * s, 24 * s)
+
 
     def _body_rect_local(self):
         s = self.scale_
@@ -103,6 +132,14 @@ class FlowerWidget(QWidget):
         g = scr.availableGeometry()
         s = self.scale_
         bw, bh, off = art.BODY_W * s, art.BODY_H * s, self.cursor_offset
+        if self._orbit and self.mode == "follow":  # tenace : elle tourne autour du curseur
+            a = self._t * 3.0
+            radius = off + max(bw, bh) * 0.6
+            bx = c.x() + math.cos(a) * radius - bw / 2
+            by = c.y() + math.sin(a) * radius - bh / 2
+            bx = max(g.left(), min(bx, g.right() - bw))
+            by = max(g.top(), min(by, g.bottom() - bh))
+            return QPointF(bx - MARGIN * s, by - MARGIN * s)
         bx, by = c.x() + off, c.y() + off
         if bx + bw > g.right():
             bx = c.x() - off - bw
@@ -127,16 +164,18 @@ class FlowerWidget(QWidget):
     def set_sleeping(self, value):
         if value != self.sleeping:
             self.sleeping = value
+            self._ensure_anim()
             self.update()
 
     def agitate(self):
         self._agitate_until = time.monotonic() + AGITATE
         self._ensure_anim()
 
-    def follow(self, seconds):
+    def follow(self, seconds, orbit=False):
         if self.mode in ("poof_out", "poof_in"):
             return
         self.mode = "follow"
+        self._orbit = orbit
         self._fpos = QPointF(self.pos())
         self._follow_until = time.monotonic() + seconds
         self._ensure_anim()
@@ -180,21 +219,46 @@ class FlowerWidget(QWidget):
         self._spawn_stars()
         self._ensure_anim()
 
+    def show_xp(self, text, delay=0.0, big=False):
+        """Petit texte (« +1 XP ») qui monte au-dessus de la tête et s'efface."""
+        cx, cy = self._center_local(50 + random.uniform(-8, 8), -6)
+        s = self.scale_
+        pt = _Particle("xp", cx, cy, 0, -(24 if big else 30) * s, 1.5 if big else 1.15, (17 if big else 14) * s)
+        pt.text, pt.age, pt.rot = text, -delay, 0.0
+        self._particles.append(pt)
+        self._ensure_anim()
+
+    def set_news(self, value):
+        if value != self._news:
+            self._news = value
+            self._ensure_anim()
+            self.update()
+
+    def _news_shaking(self):
+        return self._news and (self._t % 4.0) < 1.0  # une secousse d'une seconde toutes les 4 s
+
+    def _news_tilt(self):
+        return math.sin(self._t * 22) * 7 * (1 - (self._t % 4.0)) if self._news_shaking() else 0.0
+
     # --- animation --------------------------------------------------------
     def _ensure_anim(self):
+        self._anim.setInterval(33)
         if not self._anim.isActive():
             self._last = time.monotonic()
             self._anim.start()
 
     def _needs_anim(self):
+        return self._needs_fast() or self.sleeping or self._news  # endormie : un rythme lent suffit (Z et effets de sommeil)
+
+    def _needs_fast(self):
         now = time.monotonic()
         if self._pressing or self._particles or self.mode in ("follow", "poof_out", "poof_in"):
             return True
         if self.mode == "dock" and self._walking:
             return True
-        if now < self._agitate_until or now < self._blink_until:
+        if now < self._agitate_until or now < self._blink_until or self._news_shaking():
             return True
-        return abs(self.thirst - self.thirst_target) > 0.001
+        return abs(self.thirst - self.thirst_target) > 0.001 or abs(self.sl - (1.0 if self.sleeping else 0.0)) > 0.001
 
     def _schedule_blink(self):
         QTimer.singleShot(random.randint(2500, 6500), self._blink)
@@ -207,18 +271,22 @@ class FlowerWidget(QWidget):
 
     def _tick(self):
         now = time.monotonic()
-        dt = min(0.1, now - self._last)
+        dt = min(0.3 if self._anim.interval() > 100 else 0.1, now - self._last)
         self._last = now
         self._t += dt
 
         diff = self.thirst_target - self.thirst
         self.thirst = float(self.thirst_target) if abs(diff) < 0.005 else self.thirst + diff * min(1.0, dt * 3.5)
 
+        goal = 1.0 if self.sleeping else 0.0
+        self.sl = goal if abs(goal - self.sl) < 0.01 else self.sl + (goal - self.sl) * min(1.0, dt * 6)
+
         self._walking = False
         if self.mode == "follow" and now >= self._follow_until and not self._pressing:
             self.go_home()
         elif self.mode in ("follow", "dock"):
-            if not self._pressing and self._drag_offset is None and not self._cursor_over_body():
+            orbiting = self._orbit and self.mode == "follow"
+            if not self._pressing and self._drag_offset is None and (orbiting or not self._cursor_over_body()):
                 tgt = self._target_for_cursor()
                 d = tgt - self._fpos
                 dist = math.hypot(d.x(), d.y())
@@ -255,6 +323,8 @@ class FlowerWidget(QWidget):
         if not self._needs_anim():
             self._anim.stop()
             self.update()
+        else:
+            self._anim.setInterval(33 if self._needs_fast() else 250)
 
     # --- particules -------------------------------------------------------
     def _center_local(self, bx, by):
@@ -296,6 +366,9 @@ class FlowerWidget(QWidget):
         for pt in self._particles:
             pt.age += dt
             if pt.age >= pt.life:
+                continue
+            if pt.age < 0:  # pas encore parti (texte décalé)
+                alive.append(pt)
                 continue
             pt.x += pt.vx * dt
             pt.y += pt.vy * dt
@@ -346,9 +419,11 @@ class FlowerWidget(QWidget):
             sway = math.sin(self._t * 9) * 4 if self._walking else 0.0
             art.draw_body(p, self.thirst, sleeping=self.sleeping, drinking=self._pressing,
                           blink=now < self._blink_until, walking=self._walking,
-                          walk_phase=self._walk_phase, sway=sway)
+                          walk_phase=self._walk_phase, sway=sway, sleep_amt=self.sl)
             if self.sleeping:
-                art.draw_zz(p, self._t)
+                art.draw_zz(p, self._t, self.sl)
+                art.draw_effet_a(p, self._t, self.sl)
+                art.draw_effet_b(p, self._t, self.sl)
             elif agitating:
                 art.draw_exclaim(p)
             elif self.thirst_target >= 3 and not self._pressing:
@@ -356,8 +431,71 @@ class FlowerWidget(QWidget):
             p.restore()
         p.restore()
 
+        if self._hover and self.mode == "home" and not self._pressing and shrink > 0.99:
+            # pot fin : entre lui et la roue il y a du vide, et Windows laisse passer la souris à travers les pixels
+            # d'alpha 0 d'une fenêtre translucide. Un voile quasi invisible garde le survol jusqu'à la roue.
+            # alpha 1 est le minimum qui compte pour Windows ; noir pour disparaître aussi sur fond noir (1/255 de noir est invisible partout)
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(0, 0, 0, 1))
+            p.drawRect(QRectF((MARGIN + 56) * s, (MARGIN + 98) * s, 42 * s, 38 * s))
+            p.drawRect(QRectF((MARGIN + 2) * s, (MARGIN + 98) * s, 42 * s, 38 * s))
+            r = self._gear_rect_local()  # même bouton que dans la pop-up : carré vert doux + ⚙️
+            p.setPen(QPen(QColor("#CBE2CE"), 1))
+            p.setBrush(QColor("#E3F1E4"))
+            p.drawRoundedRect(r, 7 * s, 7 * s)
+            f = QFont("Segoe UI Emoji")
+            f.setPixelSize(max(9, int(18 * s)))
+            p.setFont(f)
+            p.setPen(QColor("#4A2E24"))
+            p.drawText(r, Qt.AlignCenter, "⚙️")
+            r2 = self._dnd_rect_local()  # « Ne pas déranger » : 💤 pour l'activer, 🔔 pour reprendre
+            p.setPen(QPen(QColor("#C9D3E8"), 1))
+            p.setBrush(QColor("#EEF1F7"))
+            p.drawRoundedRect(r2, 7 * s, 7 * s)
+            p.setFont(f)
+            p.setPen(QColor("#4A2E24"))
+            p.drawText(r2, Qt.AlignCenter, "🔔" if self.sleeping else "💤")
+
+        if self._news and self.mode == "home" and shrink > 0.99:  # « Nouvelle plante ! » reste affiché, avec une petite secousse
+            f = QFont(self.title_font)
+            f.setPixelSize(max(8, int(13 * s)))
+            f.setWeight(QFont.Bold)
+            label = t("Nouvelle plante !")
+            w = QFontMetricsF(f).horizontalAdvance(label) + 16 * s
+            h = 22 * s
+            cx, cy = self._center_local(50, -27)
+            p.save()
+            p.translate(cx, cy)
+            p.rotate(self._news_tilt())
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor("#E0533A"))
+            p.drawRoundedRect(QRectF(-w / 2, -h / 2, w, h), h / 2, h / 2)
+            p.setFont(f)
+            p.setPen(QColor("#FFF9F1"))
+            p.drawText(QRectF(-w / 2, -h / 2, w, h), Qt.AlignCenter, label)
+            p.restore()
+
         for pt in self._particles:
+            if pt.age < 0:
+                continue
             k = pt.age / pt.life
+            if pt.kind == "xp":
+                f = QFont(self.title_font)
+                f.setPixelSize(max(8, int(pt.size)))
+                f.setWeight(QFont.Bold)
+                path = QPainterPath()
+                w = QFontMetricsF(f).horizontalAdvance(pt.text)
+                path.addText(pt.x - w / 2, pt.y, f, pt.text)
+                a = 1.0 if k < 0.6 else max(0.0, 1 - (k - 0.6) / 0.4)
+                # s'efface avant d'atteindre le bord haut de la fenêtre (sinon on voit la zone coupée)
+                a = min(a, max(0.0, min(1.0, (pt.y - pt.size - 4 * s) / (14 * s))))
+                p.setPen(QPen(QColor(255, 249, 241, int(230 * a)), 3.5 * s, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+                p.setBrush(Qt.NoBrush)
+                p.drawPath(path)
+                p.setPen(Qt.NoPen)
+                p.setBrush(QColor(201, 101, 60, int(255 * a)))
+                p.drawPath(path)
+                continue
             if pt.kind == "star":
                 c = QColor(pt.color)
                 c.setAlphaF(max(0.0, 1.0 - k))
@@ -382,7 +520,23 @@ class FlowerWidget(QWidget):
         p.end()
 
     # --- souris -----------------------------------------------------------
+    def enterEvent(self, e):
+        self._hover = True
+        self.update()
+
+    def leaveEvent(self, e):
+        self._hover = False
+        self.update()
+
     def mousePressEvent(self, e):
+        if (self._hover and self.mode == "home" and e.button() == Qt.LeftButton
+                and self._gear_rect_local().adjusted(-3, -3, 3, 3).contains(e.position())):
+            self.settings_requested.emit()
+            return
+        if (self._hover and self.mode == "home" and e.button() == Qt.LeftButton
+                and self._dnd_rect_local().adjusted(-3, -3, 3, 3).contains(e.position())):
+            self.dnd_requested.emit()
+            return
         if not self._body_rect_local().contains(e.position()):
             e.ignore()
             return

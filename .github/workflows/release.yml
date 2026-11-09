@@ -45,5 +45,8 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${{ github.ref_name }}" (Get-ChildItem PetiteSoif-*-windows.zip*).FullName --title "Petite Soif ${{ github.ref_name }}" --generate-notes
         shell: pwsh
+        run: |
+          $zip = "PetiteSoif-${{ github.ref_name }}-windows.zip"
+          ./tools/release_notes.ps1 "${{ github.ref_name }}" $zip | Out-File -Encoding utf8 notes.md
+          gh release create "${{ github.ref_name }}" $zip "$zip.sha256" --title "Petite Soif ${{ github.ref_name }}" --notes-file notes.md

@@ -10,7 +10,9 @@ import wave
 from array import array
 
 SR = 44100
-NAMES = ["soif_1", "soif_2", "soif_3", "glouglou", "valide", "poof"]
+WATER_STEPS = 5  # sons "eau_0".."eau_4" : de plus en plus aigus (curseurs des paramètres)
+UI_SOUNDS = {"goutte"} | {f"eau_{i}" for i in range(WATER_STEPS)}
+NAMES = ["soif_1", "soif_2", "soif_3", "glouglou", "valide", "poof", "goutte"] + [f"eau_{i}" for i in range(WATER_STEPS)]
 
 
 def _buf(seconds):
@@ -110,6 +112,16 @@ def _make(name):
         _noise(b, 0.0, 0.38, vol=0.5, cutoff=0.18, decay=11)
         _tone(b, 0.0, 0.16, 190, 85, vol=0.35, partials=((1, 1.0),), attack=0.004, release=0.08)
         return b, 0.45
+    if name == "goutte":  # gouttelette (boutons - / +)
+        b = _buf(0.16)
+        _tone(b, 0.0, 0.07, 400, 780, vol=0.55, attack=0.002, release=0.04, partials=((1, 1.0),))
+        _tone(b, 0.05, 0.09, 680, 570, vol=0.15, attack=0.002, release=0.06, partials=((1, 1.0),))
+        return b, 0.35
+    if name.startswith("eau_"):  # petite bulle dont la hauteur suit la valeur du curseur
+        f0 = 170 * 1.2 ** int(name[4:])  # 170 -> 350 Hz : grave au début, sans finir dans les aigus
+        b = _buf(0.11)
+        _tone(b, 0.0, 0.08, f0, f0 * 1.8, vol=0.45, attack=0.003, release=0.04, partials=((1, 1.0),))
+        return b, 0.30
     raise KeyError(name)
 
 
@@ -117,7 +129,7 @@ def ensure_sounds(folder):
     folder.mkdir(parents=True, exist_ok=True)
     for name in NAMES:
         path = folder / f"{name}.wav"
-        if not path.exists():
+        if not path.exists() or name in UI_SOUNDS:  # sons d'interface : toujours régénérés (réglages qui évoluent)
             buf, peak = _make(name)
             _save(path, buf, peak)
 

@@ -28,7 +28,6 @@ The big one: a real settings window, a language switch, and XP to unlock new pla
 
 ### Changed
 - Pop-up redesigned to match the settings window (colours, rounded corners, bigger green settings button).
-- Hover gear on the pot now looks like the pop-up button (green square with ⚙️).
 - Small text is now **Segoe UI** (system font, crisp on Windows); titles and labels stay in **Baloo 2**.
   DM Sans was removed (licence file and notice too).
 - Sleeping "Z"s now rise from the pot instead of above the head.
@@ -36,11 +35,6 @@ The big one: a real settings window, a language switch, and XP to unlock new pla
 - The plants are vector drawings rendered with Qt's SVG module (already part of PySide6, about 0.7 MB more on disk).
 
 ### Fixed
-- Slider handle no longer clipped at the top and bottom.
-- The "New day" hour used to stop at 12; it now goes from midnight to 11 PM (0 h to 23 h in French).
-- Old settings window can no longer clear the reference to a new one (language change).
-- The +XP text now fades out before reaching the top edge of the flower's window, so the edge of the zone is no longer visible.
-- With a thin pot, the settings gear no longer disappears while you move the mouse towards it.
 - A hand-edited `config.json` with an absurd value (size 0, volume 7, text instead of a number…) no longer breaks the app: the value is clamped or reset.
 - The history database now carries a schema version, to make future updates safe.
 - When updating from V1 (a config without language), the language now follows Windows instead of staying French.

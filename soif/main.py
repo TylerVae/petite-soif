@@ -1,4 +1,5 @@
 """Contrôleur : timer de soif, escalade des rappels, absence, ne pas déranger, tray, raccourci."""
+import os
 import sys
 import time
 import traceback
@@ -15,7 +16,7 @@ from . import i18n
 from .i18n import t
 from . import settings as settings_mod
 from . import painter as art
-from . import winapi
+from . import osapi
 from .flower import FlowerWidget
 from .popup import StatsPopup, fmt_l
 from .sounds import SoundPlayer
@@ -55,6 +56,9 @@ def _icon(thirst=0.0, sleeping=False):
     return QIcon(pm)
 
 
+MAX_REPEATS_NO_IDLE = 5
+
+
 class Controller(QObject):
     def __init__(self, app):
         super().__init__()
@@ -84,6 +88,7 @@ class Controller(QObject):
         self.ref = max(last, self.storage.last_boundary(), now if self.cfg["reset_timer_au_lancement"] else 0)
         self.fired_level = 0
         self.last_repeat = 0.0
+        self.repeats = 0  # rappels répétés depuis la dernière gorgée (plafonnés si l'inactivité n'est pas mesurable)
         self.next_boundary = self.storage.next_boundary()
         self.dnd_until = float(self.storage.get_state("ndp_jusqua", "0"))
         self._fallback_pos = QCursor.pos()
@@ -108,9 +113,9 @@ class Controller(QObject):
         self._build_tray()
         self.flower.show()
         self._hwnd = int(self.flower.winId())
-        winapi.make_overlay(self._hwnd)
+        osapi.make_overlay(self._hwnd)
 
-        self.hotkey = winapi.GlobalHotkey(self.recall)
+        self.hotkey = osapi.GlobalHotkey(self.recall)
         app.installNativeEventFilter(self.hotkey)
         self.register_hotkey()
 
@@ -119,11 +124,13 @@ class Controller(QObject):
         self._watcher = QFileSystemWatcher([str(cfgmod.CONFIG_PATH)], self)
         self._watcher.fileChanged.connect(self._on_config_file)
 
-        if first_run and winapi.IS_WIN:
+        if first_run:
             answer = QMessageBox.question(
                 None, "Petite Soif",
                 t("Lancer Petite Soif automatiquement au démarrage de Windows ?\n\n"
-                  "Modifiable à tout moment via l'icône près de l'horloge."),
+                  "Modifiable à tout moment via l'icône près de l'horloge.") if osapi.IS_WIN else
+                t("Lancer Petite Soif automatiquement à l'ouverture de session ?\n\n"
+                  "Modifiable à tout moment via l'icône de la zone de notification."),
             )
             self.cfg["demarrage_windows"] = answer == QMessageBox.Yes
             cfgmod.save_key("demarrage_windows", self.cfg["demarrage_windows"])
@@ -131,7 +138,7 @@ class Controller(QObject):
                                                    "clic gauche maintenu quand tu bois."))
         try:
             # réécrit le chemin à chaque lancement : suit le .exe s'il a été déplacé
-            winapi.set_autostart(bool(self.cfg["demarrage_windows"]), cfgmod.ENTRY_SCRIPT)
+            osapi.set_autostart(bool(self.cfg["demarrage_windows"]), cfgmod.ENTRY_SCRIPT)
         except Exception:
             pass
 
@@ -153,7 +160,7 @@ class Controller(QObject):
         self.storage.set_state("home", f"{point.x()},{point.y()}")
 
     def _idle(self):
-        idle = winapi.idle_seconds()
+        idle = osapi.idle_seconds()
         if idle is not None:
             return idle
         pos = QCursor.pos()  # repli hors Windows : souris seulement
@@ -188,11 +195,17 @@ class Controller(QObject):
         key = key or self.cfg["raccourci_recuperer"]
         ok = self.hotkey.register(key, int(self.flower.winId()))
         self._hotkey_text = key if ok else None
-        if winapi.IS_WIN and not ok and not quiet:
+        if osapi.HAS_HOTKEY and not ok and not quiet:
             self.tray.showMessage("Petite Soif", t("Le raccourci {k} est indisponible (déjà pris ou invalide). "
-                                                   "Change-le dans les paramètres.", k=winapi.pretty_hotkey(key)))
-        self.act_recall.setText(t("Récupérer la fleur ({k})", k=winapi.pretty_hotkey(key)))
+                                                   "Change-le dans les paramètres.", k=osapi.pretty_hotkey(key)))
+        self._set_recall_label(key)
         return ok
+
+    def _set_recall_label(self, key):
+        if osapi.HAS_HOTKEY:
+            self.act_recall.setText(t("Récupérer la fleur ({k})", k=osapi.pretty_hotkey(key)))
+        else:
+            self.act_recall.setText(t("Récupérer la fleur"))
 
     # --- boucle principale -----------------------------------------------
     def _keep_on_top(self):
@@ -203,7 +216,7 @@ class Controller(QObject):
             except RuntimeError:
                 popup_open = False
         if not popup_open and self.flower.isVisible():
-            winapi.force_topmost(self._hwnd)
+            osapi.force_topmost(self._hwnd)
 
     def tick(self):
         now = time.time()
@@ -243,8 +256,13 @@ class Controller(QObject):
                     self.flower.wake()
             elif absent and mode == "home" and not douce:
                 self.flower.dock()
-            elif mode == "home" and now - self.last_repeat >= rep and idle < rep:
+            elif mode == "home" and now - self.last_repeat >= rep and idle < rep and self._may_repeat():
+                self.repeats += 1
                 self._fire(3, False)
+
+    def _may_repeat(self):
+        # Sans mesure fiable de l'inactivité (Linux sans libXss, Wayland), "idle < rep" ne prouve rien : on plafonne
+        return osapi.HAS_IDLE or self.repeats < MAX_REPEATS_NO_IDLE
 
     def _fire(self, level, absent):
         self.fired_level = max(self.fired_level, level)
@@ -271,6 +289,7 @@ class Controller(QObject):
         self.ref = now
         self.fired_level = 0
         self.last_repeat = now
+        self.repeats = 0
         xp_before = self.storage.xp()
         if glass:
             gain = 3
@@ -402,7 +421,7 @@ class Controller(QObject):
             self.sounds.set_volume(cfg["volume"])
         if float(cfg["echelle"]) != self.flower.scale_:
             self.flower.set_scale(cfg["echelle"])
-            winapi.make_overlay(self._hwnd)
+            osapi.make_overlay(self._hwnd)
         if cfg.get("plante") != art.SKIN:
             art.set_skin(cfg.get("plante"))
             self.flower.update()
@@ -448,8 +467,7 @@ class Controller(QObject):
         self._build_menu()
         self._tooltip = ""
         self._update_tray(self.flower.thirst_target, time.time() < self.dnd_until)
-        self.act_recall.setText(t("Récupérer la fleur ({k})",
-                                  k=winapi.pretty_hotkey(self._hotkey_text or self.cfg["raccourci_recuperer"])))
+        self._set_recall_label(self._hotkey_text or self.cfg["raccourci_recuperer"])
         win = self._settings
         if win is not None:
             pos, tab = win.pos(), win.stack.currentIndex()
@@ -462,7 +480,7 @@ class Controller(QObject):
 
     def toggle_autostart(self, checked):
         try:
-            winapi.set_autostart(checked, cfgmod.ENTRY_SCRIPT)
+            osapi.set_autostart(checked, cfgmod.ENTRY_SCRIPT)
         except Exception:
             pass
         self.cfg["demarrage_windows"] = checked
@@ -540,6 +558,8 @@ def load_fonts():
 
 def run():
     _install_error_log()
+    if sys.platform.startswith("linux"):
+        os.environ.setdefault("QT_QPA_PLATFORM", "xcb")  # X11, ou XWayland ; Wayland pur non géré (fleur non épinglée)
     app = QApplication(sys.argv)
     load_fonts()
     app.setApplicationName("Petite Soif")

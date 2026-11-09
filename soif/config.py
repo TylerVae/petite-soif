@@ -20,10 +20,19 @@ REPO_URL = "https://github.com/TylerVae/petite-soif"
 def _user_dir():
     if sys.platform == "win32" and os.environ.get("APPDATA"):
         return Path(os.environ["APPDATA"]) / "PetiteSoif"
+    if sys.platform.startswith("linux"):  # XDG : ~/.config/PetiteSoif, jamais dans le dossier du code
+        return Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "PetiteSoif"
     return Path.home() / ".petite_soif"
 
 
-# Toutes les données vivent dans %APPDATA%\PetiteSoif\ (hors du dossier du code / du repo)
+# Polices : Segoe UI et son emoji sous Windows ; sous Linux, les polices courantes des distributions
+WIN = sys.platform == "win32"
+BODY_FONT = "Segoe UI" if WIN else "Noto Sans"
+EMOJI_FONT = "Segoe UI Emoji" if WIN else "Noto Color Emoji"
+FONT_FALLBACK = "'Segoe UI', 'Noto Sans', 'DejaVu Sans', 'Ubuntu', sans-serif"  # liste CSS (feuilles de style Qt)
+
+
+# Toutes les données vivent dans %APPDATA%\PetiteSoif\ (Linux : ~/.config/PetiteSoif/) (hors du dossier du code / du repo)
 USER_DIR = _user_dir()
 CONFIG_PATH = USER_DIR / "config.json"
 DATA_DIR = USER_DIR / "donnees"

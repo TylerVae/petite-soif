@@ -1,6 +1,7 @@
 """Petite pop-up (clic droit) : total du jour, objectif, + 50 cl, historique 7 jours."""
 from PySide6.QtCore import QPoint, QRectF, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QGuiApplication, QLinearGradient, QPainter, QPen
+from . import config as cfgmod
 from . import i18n
 from .i18n import t
 from PySide6.QtWidgets import (QFrame, QGraphicsDropShadowEffect, QHBoxLayout, QLabel, QPushButton,
@@ -120,7 +121,7 @@ def style():
     t, b = _title(), _body()
     return f"""
 #card {{ background:#FFF9F1; border:1px solid #EAD8C3; border-radius:16px; }}
-QWidget {{ font-family:'{b}', 'Segoe UI'; color:#4A2E24; font-size:14px; }}
+QWidget {{ font-family:'{b}', {cfgmod.FONT_FALLBACK}; color:#4A2E24; font-size:14px; }}
 QLabel#head {{ font-family:'{t}'; font-size:18px; font-weight:600; }}
 QLabel#sub {{ font-size:13px; color:#7A5C4A; }}
 QLabel#big {{ font-family:'{t}'; font-size:34px; font-weight:700; }}

@@ -117,6 +117,9 @@ EN = {
     # menu de l'icône et notifications
     "Voir ma journée": "See my day",
     "Récupérer la fleur": "Bring the flower back",
+    "Petite Soif démarre avec la session.": "Petite Soif starts with your session.",
+    "Lancer Petite Soif automatiquement à l'ouverture de session ?\n\nModifiable à tout moment via l'icône de la zone de notification.":
+        "Start Petite Soif automatically when you log in?\n\nYou can change this any time from the tray icon.",
     "Récupérer la fleur ({k})": "Bring the flower back ({k})",
     "Paramètres…": "Settings…",
     "Exporter l'historique (CSV)…": "Export history (CSV)…",

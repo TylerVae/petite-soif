@@ -13,6 +13,7 @@ from PySide6.QtGui import (QColor, QCursor, QFont, QFontMetricsF, QGuiApplicatio
                            QPen)
 from PySide6.QtWidgets import QWidget
 
+from . import config as cfgmod
 from . import painter as art
 from .i18n import t
 
@@ -443,7 +444,7 @@ class FlowerWidget(QWidget):
             p.setPen(QPen(QColor("#CBE2CE"), 1))
             p.setBrush(QColor("#E3F1E4"))
             p.drawRoundedRect(r, 7 * s, 7 * s)
-            f = QFont("Segoe UI Emoji")
+            f = QFont(cfgmod.EMOJI_FONT)
             f.setPixelSize(max(9, int(18 * s)))
             p.setFont(f)
             p.setPen(QColor("#4A2E24"))

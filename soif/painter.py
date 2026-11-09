@@ -10,6 +10,7 @@ from PySide6.QtCore import QByteArray, QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QLinearGradient, QPainterPath, QPen, QRadialGradient
 from PySide6.QtSvg import QSvgRenderer
 
+from . import config as cfgmod
 from . import plantes
 
 BODY_W = 100.0
@@ -432,7 +433,7 @@ def draw_exclaim(p, x=74, y=0):
     p.setPen(QPen(QColor("#FFFFFF"), 1))
     p.setBrush(QColor("#E0584F"))
     p.drawEllipse(QPointF(x, y), 8, 8)
-    f = QFont("Segoe UI")
+    f = QFont(cfgmod.BODY_FONT)
     f.setBold(True)
     f.setPixelSize(12)
     p.setFont(f)

@@ -1,0 +1,75 @@
+# Version Linux EXPÉRIMENTALE (X11). Séparée de release.yml (Windows) pour ne jamais le gêner.
+# Déclencheur : un tag "linux-v2.1.0-exp1"… (ne correspond pas à "v*", donc ne lance pas la Release Windows).
+# Construit dans AlmaLinux 8 (glibc 2.28) pour tourner sur la plupart des distributions récentes. Publiée en pré-version.
+name: Release Linux (expérimental)
+
+on:
+  push:
+    tags: ["linux-v*"]
+  workflow_dispatch: # build de test, sans Release
+
+permissions:
+  contents: write # nécessaire uniquement pour créer la Release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: almalinux:8
+    steps:
+      - name: Outils et bibliothèques système (pour Qt à l'analyse et aux tests hors écran)
+        run: |
+          dnf install -y python3.12 python3.12-pip git tar gzip findutils mesa-libGL mesa-libEGL fontconfig freetype \
+            libxkbcommon libxkbcommon-x11 dbus-libs glib2 xcb-util-cursor xcb-util-image xcb-util-keysyms \
+            xcb-util-renderutil xcb-util-wm libXScrnSaver
+      - uses: actions/checkout@v4
+
+      - name: Dépendances (versions figées)
+        run: python3.12 -m pip install -r requirements-build.txt
+
+      - name: Tests (hors écran)
+        run: QT_QPA_PLATFORM=offscreen python3.12 -m unittest discover -s tests -t . -v
+
+      - name: Build PyInstaller + archive + SHA-256
+        env:
+          NAME: PetiteSoif-${{ github.ref_name }}-linux-x86_64
+        run: |
+          ln -sf "$(command -v python3.12)" /usr/local/bin/python3
+          sh tools/build_linux.sh "$NAME"
+          echo "NAME=$NAME" >> "$GITHUB_ENV"
+
+      - name: Archive du build
+        uses: actions/upload-artifact@v4
+        with:
+          name: PetiteSoif-linux
+          path: PetiteSoif-*-linux-x86_64.tar.gz*
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/') # un lancement manuel s'arrête à l'artefact ci-dessus
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: PetiteSoif-linux
+      - name: Publier la pré-version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          NAME="PetiteSoif-$TAG-linux-x86_64"
+          sha=$(cut -d' ' -f1 "$NAME.tar.gz.sha256")
+          cat > notes.md <<NOTES
+          **EXPERIMENTAL Linux build (X11).** Not tested on every distribution. Pure Wayland is not supported
+          (no always-on-top flower, no cursor following; XWayland may work). No global shortcut yet.
+          See LINUX.md inside the archive.
+
+          ## Install
+          1. Download \`$NAME.tar.gz\` and extract it: \`tar xzf $NAME.tar.gz\`
+          2. If the app does not start, install the Xcb library: \`sudo apt install libxcb-cursor0\` (Debian/Ubuntu/Mint)
+          3. Run \`./PetiteSoif/PetiteSoif\`
+
+          SHA-256 of the archive:
+
+          \`$sha\`
+          NOTES
+          gh release create "$TAG" "$NAME.tar.gz" "$NAME.tar.gz.sha256" --repo "${{ github.repository }}"             --prerelease --title "Petite Soif $TAG (Linux, experimental)" --notes-file notes.md

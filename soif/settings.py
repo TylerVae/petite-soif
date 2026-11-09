@@ -16,11 +16,11 @@ from . import i18n
 from .i18n import t
 from . import painter as art
 from . import plantes
-from . import winapi
+from . import osapi
 from .popup import fmt_hour, fmt_l
 
 FAMILY = "Baloo 2"  # titres (remplacé par le nom réellement chargé, main.load_fonts)
-BODY = "Segoe UI"  # petit texte : police de Windows, calée au pixel (DM Sans/Baloo restaient flous en petit)
+BODY = cfgmod.BODY_FONT  # petit texte : police de Windows, calée au pixel (DM Sans/Baloo restaient flous en petit)
 CONTROL_W = 196
 NDP_CHOICES = [15, 30, 60, 120, 240]
 INSIST = [("douce", "Douce"), ("normale", "Normale"), ("tenace", "Tenace")]
@@ -78,7 +78,7 @@ def style():
     return f"""
 #card {{ background:#FFF9F1; border:1px solid #EAD8C3; border-radius:16px; }}
 #side {{ background:#F6E9D9; border-top-left-radius:16px; border-bottom-left-radius:16px; }}
-QWidget {{ font-family:'{BODY}', 'Segoe UI'; color:#4A2E24; font-size:14px; }}
+QWidget {{ font-family:'{BODY}', {cfgmod.FONT_FALLBACK}; color:#4A2E24; font-size:14px; }}
 QLabel#brand {{ font-family:'{FAMILY}'; font-size:20px; font-weight:700; }}
 QLabel#title {{ font-family:'{FAMILY}'; font-size:28px; font-weight:700; }}
 QLabel#lbl {{ font-family:'{FAMILY}'; font-size:18px; font-weight:600; }}
@@ -260,7 +260,7 @@ class KeyField(QPushButton):
 
     def set_hotkey(self, text, bad=False):
         self.hotkey = text
-        self.setText(winapi.pretty_hotkey(text).replace("+", " + "))
+        self.setText(osapi.pretty_hotkey(text).replace("+", " + "))
         self._restyle(capture=False, bad=bad)
 
     def _start(self):
@@ -371,7 +371,7 @@ class Slot(QPushButton):
             p.scale(k, k)
             art.draw_preview(p, self.pid)
         else:  # débloquée mais pas encore dessinée
-            f = QFont("Segoe UI Emoji")
+            f = QFont(cfgmod.EMOJI_FONT)
             f.setPixelSize(22)
             p.setFont(f)
             p.setOpacity(0.6)
@@ -694,19 +694,21 @@ class SettingsWindow(QWidget):
         # Système
         lay = self._page()
         self.key = KeyField(c["raccourci_recuperer"])
-        self.key_help = self._row(lay, t("Ramener la fleur"), t("Clique, puis appuie sur ta combinaison."), self.key)
+        self.key_help = None
+        if osapi.HAS_HOTKEY:  # pas de raccourci global sous Linux (expérimental)
+            self.key_help = self._row(lay, t("Ramener la fleur"), t("Clique, puis appuie sur ta combinaison."), self.key)
         self.key.started.connect(self.ctrl.hotkey.unregister)  # sinon Windows avale le raccourci actuel
         self.key.cancelled.connect(self.ctrl.register_hotkey)
         self.key.captured.connect(self._on_hotkey)
         self.tg_auto = Toggle(bool(c["demarrage_windows"]))
         self.tg_auto.toggled.connect(self.ctrl.toggle_autostart)
-        self._row(lay, t("Lancer au démarrage"), t("Petite Soif démarre avec Windows."), self.tg_auto, last=True)
+        self._row(lay, t("Lancer au démarrage"), t("Petite Soif démarre avec Windows.") if osapi.IS_WIN else t("Petite Soif démarre avec la session."), self.tg_auto, last=True)
         links = QHBoxLayout()
         links.setContentsMargins(0, 10, 0, 0)
         links.setSpacing(18)
         for text, path in ((t("Ouvrir le dossier de mes données"), cfgmod.USER_DIR),
                            (t("Réglages avancés (config.json)"), cfgmod.CONFIG_PATH)):
-            links.addWidget(self._link(text, lambda p=path: winapi.open_path(p)))
+            links.addWidget(self._link(text, lambda p=path: osapi.open_path(p)))
         links.addStretch()
         lay.addLayout(links)
         lay.addStretch()
@@ -922,7 +924,7 @@ class SettingsWindow(QWidget):
             self._save("raccourci_recuperer", text)
         else:
             self.key.set_hotkey(self.key.hotkey, bad=True)
-            self.key_help.setText(t("{k} est déjà pris, essaies-en une autre.", k=winapi.pretty_hotkey(text)))
+            self.key_help.setText(t("{k} est déjà pris, essaies-en une autre.", k=osapi.pretty_hotkey(text)))
             self.ctrl.register_hotkey()
 
     def _reset(self):
@@ -943,7 +945,7 @@ class SettingsWindow(QWidget):
 
     def _open_log(self):
         if cfgmod.LOG_PATH.exists():
-            winapi.open_path(cfgmod.LOG_PATH)
+            osapi.open_path(cfgmod.LOG_PATH)
         else:
             QMessageBox.information(self, "Petite Soif", t("Aucune erreur enregistrée pour l'instant."))
 

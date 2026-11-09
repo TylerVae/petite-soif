@@ -30,6 +30,7 @@ v2.0.0 publiée (repo public + Release). Correctifs éventuels en `v2.0.x`, nouv
 - `soif/storage.py` : SQLite, une "journée" commence à `heure_reset` (6 h).
 - `soif/sounds.py` : sons synthétisés + lecture `winsound` (volume via copies atténuées dans `sons/.cache`).
 - `soif/winapi.py` : `GetLastInputInfo`, `RegisterHotKey`, `SetWindowPos(HWND_TOPMOST)`, clé `Run` du registre.
+- `soif/osapi.py` choisit `winapi.py` (Windows) ou `x11api.py` (Linux, EXPÉRIMENTAL : libXss via ctypes, autostart `.desktop`, pas de raccourci global) ; même interface, `HAS_IDLE` / `HAS_HOTKEY` pour les différences. Sons Linux : `paplay`/`pw-play`/`aplay`. Voir `docs/LINUX.md`.
 - `soif/config.py` : chemins, défauts, `__version__`.
 
 ## Règles non négociables

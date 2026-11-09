@@ -9,6 +9,8 @@ from pathlib import Path
 from PySide6.QtCore import QAbstractNativeEventFilter
 
 IS_WIN = sys.platform == "win32"
+HAS_IDLE = True  # idle_seconds() est fiable (GetLastInputInfo)
+HAS_HOTKEY = True
 if IS_WIN:
     import ctypes.wintypes as wt
 

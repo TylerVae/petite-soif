@@ -5,6 +5,8 @@ remplace simplement le fichier du même nom. Pour régénérer un son, supprime 
 """
 import math
 import random
+import shutil
+import subprocess
 import sys
 import wave
 from array import array
@@ -135,7 +137,8 @@ def ensure_sounds(folder):
 
 
 class SoundPlayer:
-    """Lecture via winsound (intégré à Windows, aucune dépendance externe).
+    """Lecture via winsound (intégré à Windows) ou, sous Linux, paplay / pw-play / aplay trouvés dans le PATH.
+    Aucune dépendance externe, jamais de QtMultimedia.
 
     Le volume est appliqué en pré-calculant une copie atténuée de chaque .wav dans
     sons/.cache/. Une seule piste joue à la fois (un nouveau son remplace le précédent).
@@ -182,19 +185,58 @@ class SoundPlayer:
         self._build_cache()
 
     def play(self, name):
-        if sys.platform != "win32" or self.volume <= 0:
+        if self.volume <= 0:
             return
-        import winsound
-
         path = self._paths.get(name)
         if path is None:
             return
-        self._current = name
-        winsound.PlaySound(str(path), winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
+        if sys.platform == "win32":
+            import winsound
+
+            self._current = name
+            winsound.PlaySound(str(path), winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
+        elif sys.platform.startswith("linux"):
+            self._play_linux(name, path)
 
     def stop(self, name):
-        if sys.platform == "win32" and self._current == name:
+        if self._current != name:
+            return
+        if sys.platform == "win32":
             import winsound
 
             winsound.PlaySound(None, 0)
-            self._current = None
+        else:
+            self._kill()
+        self._current = None
+
+    # --- Linux ---
+    def _play_linux(self, name, path):
+        cmd = linux_player_command(path)
+        if cmd is None:
+            return
+        self._kill()  # un nouveau son remplace le précédent, comme sous Windows
+        from .osapi import clean_env
+
+        try:
+            self._proc = subprocess.Popen(cmd, env=clean_env(), stdin=subprocess.DEVNULL,
+                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            self._current = name
+        except OSError:
+            self._proc = None
+
+    def _kill(self):
+        proc = getattr(self, "_proc", None)
+        if proc is not None:
+            if proc.poll() is None:
+                proc.terminate()
+            proc.wait()  # termine tout de suite après SIGTERM ; évite les processus zombies
+        self._proc = None
+
+
+def linux_player_command(path):
+    """Première commande de lecture disponible dans le PATH (None si aucune)."""
+    for prog, extra in (("paplay", []), ("pw-play", []), ("aplay", ["-q"])):
+        exe = shutil.which(prog)
+        if exe:
+            return [exe, *extra, str(path)]
+    return None

@@ -8,7 +8,7 @@ Appli Windows (Python 3 + PySide6-Essentials) : une fleur en pot toujours au pre
 rappelle de boire de l'eau. Distribuée en `.exe` (PyInstaller, mode dossier) via les GitHub Releases.
 
 ## Phase actuelle
-v1.0.0 publiée (repo public + Release). Correctifs éventuels en `v1.0.x`, nouveautés en V2 (détail dans
+v2.0.0 publiée (repo public + Release). Correctifs éventuels en `v2.0.x`, nouveautés en `v2.1` et après (détail dans
 `HANDOFF.md` en local). Chaque session lit `HANDOFF.md` au début et le met à jour à la fin.
 
 ## Workflow git
@@ -23,8 +23,9 @@ v1.0.0 publiée (repo public + Release). Correctifs éventuels en `v1.0.x`, nouv
 - `soif/flower.py` : fenêtre de la fleur (modes home/follow/dock/hold/poof, particules, gestes souris).
 - `soif/painter.py` : dessin vectoriel QPainter de la fleur classique ; dispatche vers `plantes.py` pour les autres plantes.
 - `soif/plantes.py` : les autres plantes, dessinées en SVG paramétré (soif 0..3 + sommeil) et rendues par QtSvg avec un cache.
-  Le choix se fait dans `config.json` (clé `plante`) ou dans Paramètres > Ma plante. Ne jamais nommer les plantes dans le README,
-  le changelog ni les visuels publics : les découvrir fait partie du jeu.
+  Le choix se fait dans `config.json` (clé `plante`) ou dans Paramètres > Ma plante. Les plantes sont désignées par des numéros
+  (`classique`, `plante_2` à `plante_11`) ; leurs noms ne sont qu'en ROT13 dans `settings._NOMS`. Ne jamais les nommer en clair, ni dans le code,
+  ni dans le README, le changelog ou les visuels publics (les découvrir fait partie de la surprise) : `tests/test_privacy.py` le vérifie.
 - `soif/popup.py` : pop-up clic droit (total, objectif, +50 cl, 7 jours).
 - `soif/storage.py` : SQLite, une "journée" commence à `heure_reset` (6 h).
 - `soif/sounds.py` : sons synthétisés + lecture `winsound` (volume via copies atténuées dans `sons/.cache`).
@@ -41,8 +42,9 @@ v1.0.0 publiée (repo public + Release). Correctifs éventuels en `v1.0.x`, nouv
    `sons/`, `*.db`, `*.log`, `*.csv`, `HANDOFF.md`, chemins `C:\Users\…`, adresse e-mail, nom réel, token.
    Commande : `git diff --cached --name-only` puis une recherche de ces motifs dans le diff.
 3. **Jamais de push automatique.** Montrer le diff, attendre un "go" explicite du mainteneur, puis pousser.
-4. **Release = tag.** `__version__` dans `soif/config.py` doit correspondre au tag (`v1.0.0` ↔ `1.0.0`).
-   Le workflow `.github/workflows/release.yml` construit et publie l'exe quand un tag `v*` est poussé.
+4. **Release = tag.** `__version__` dans `soif/config.py` doit correspondre au tag (`v2.0.0` ↔ `2.0.0`).
+   Le workflow `.github/workflows/release.yml` construit et publie l'exe quand un tag `v*` est poussé ; les notes viennent de la section
+   `## X.Y.Z` du `CHANGELOG.md` (via `tools/release_notes.ps1`) : l'écrire avant de tagger, sinon le workflow s'arrête.
 5. **Dépendances figées** dans `requirements*.txt`. Pas de nouvelle dépendance sans le signaler
    (licence + poids + justification). Ne pas réintroduire QtMultimedia (licence FFmpeg, poids).
 6. **Licences.** Garder `LICENSE`, `THIRD_PARTY_NOTICES.md` et `LICENSES/` à jour et copiés à côté
